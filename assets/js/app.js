@@ -1,5 +1,15 @@
 import { ArchiveStorage } from './data.js';
 
+// Hash definitions for Admin security
+const DEFAULT_PASSWORD_HASH = "9d67af1a2bd4002ba6897497a029981240169b30006dc31871470fc768e4fca0";
+
+async function hashPassword(password) {
+  const msgBuffer = new TextEncoder().encode(password);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
 // Global State
 let currentRoute = 'home';
 let activeManageTab = 'concepts'; // 'concepts', 'companies', 'characters', 'incidents', 'games'
@@ -126,14 +136,28 @@ function handleRouting(pathname) {
 
 function navigate(route) {
   // Check admin lock for management route
-  if (route === 'manage' && !checkAdminSession()) {
-    window.history.pushState({}, '', getResolvedPath('admin-login'));
-    currentRoute = 'admin-login';
-    updateNavigationHeader();
-    renderView('admin-login');
-    showStatusNotification('관리자 권한이 필요합니다. 로그인해 주십시오.');
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-    return;
+  if (route === 'manage') {
+    if (!checkAdminSession()) {
+      window.history.pushState({}, '', getResolvedPath('admin-login'));
+      currentRoute = 'admin-login';
+      updateNavigationHeader();
+      renderView('admin-login');
+      showStatusNotification('관리자 권한이 필요합니다. 로그인해 주십시오.');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
+    
+    // Check if password change is forced
+    const savedHash = localStorage.getItem('zj_admin_password_hash') || DEFAULT_PASSWORD_HASH;
+    const passwordChanged = localStorage.getItem('zj_password_changed') === 'true';
+    if (savedHash === DEFAULT_PASSWORD_HASH && !passwordChanged) {
+      window.history.pushState({}, '', getResolvedPath('admin-login'));
+      currentRoute = 'admin-login';
+      updateNavigationHeader();
+      renderView('admin-login');
+      showPasswordChangeModal(true); // force it
+      return;
+    }
   }
 
   // Handle logout when visiting login page while already logged in
@@ -1146,8 +1170,12 @@ function renderManage() {
       <button class="manage-tab ${activeManageTab === 'memory_fragments' ? 'active' : ''}" data-tab="memory_fragments">9. 기억 파편</button>
     </div>
     
-    <div style="margin-bottom:1.5rem; text-align:right;">
-      <button class="archive-btn archive-btn-danger" id="btn-reset-db" style="font-size:0.8rem; padding:0.4rem 1rem; cursor: pointer;">⚠️ 데이터베이스 초기화</button>
+    <div style="margin-bottom:1.5rem; display:flex; justify-content:space-between; align-items:center;">
+      <span style="font-size:0.8rem; color:var(--text-muted);">보안 등급: 2급 기밀 (ADMIN PANEL)</span>
+      <div style="display:flex; gap:0.5rem;">
+        <button class="archive-btn archive-btn-primary" id="btn-change-password" style="font-size:0.8rem; padding:0.4rem 1rem; cursor: pointer;">🔑 비밀번호 변경</button>
+        <button class="archive-btn archive-btn-danger" id="btn-reset-db" style="font-size:0.8rem; padding:0.4rem 1rem; cursor: pointer;">⚠️ 데이터베이스 초기화</button>
+      </div>
     </div>
 
     <!-- Management Workspace Layout -->
@@ -1167,6 +1195,13 @@ function renderManage() {
       renderManageTabContent();
     });
   });
+
+  const changePasswordBtn = document.getElementById('btn-change-password');
+  if (changePasswordBtn) {
+    changePasswordBtn.addEventListener('click', () => {
+      showPasswordChangeModal(false);
+    });
+  }
 
   const resetBtn = document.getElementById('btn-reset-db');
   if (resetBtn) {
@@ -2614,9 +2649,6 @@ function renderAdminLogin() {
           <div class="form-group" style="margin-bottom:1.5rem;">
             <label class="archive-label">보안 인증 암호</label>
             <input type="password" id="admin-password" class="archive-input" required placeholder="인증 코드를 입력하십시오.">
-            <span style="font-size:0.75rem; color:var(--text-muted); display:block; margin-top:0.5rem; text-align:center;">
-              ※ 기본 관리자 인증 암호: <strong style="color:var(--accent-red);">residual-world</strong>
-            </span>
           </div>
           <button type="submit" class="archive-btn archive-btn-primary" style="width:100%;">보안 격리 해제</button>
         </form>
@@ -2626,21 +2658,165 @@ function renderAdminLogin() {
 
   const form = document.getElementById('admin-login-form');
   if (form) {
-    form.addEventListener('submit', (e) => {
+    form.addEventListener('submit', async (e) => {
       e.preventDefault();
       const pwd = document.getElementById('admin-password').value;
-      if (pwd === 'residual-world') {
-        localStorage.setItem('zj_admin_logged_in', 'true');
-        localStorage.setItem('zj_admin_login_time', Date.now().toString());
-        updateNavigationHeader();
-        window.history.pushState({}, '', getResolvedPath('manage'));
-        navigate('manage');
-        showStatusNotification('관리자 권한이 인증되었습니다.');
+      const hashed = await hashPassword(pwd);
+      const savedHash = localStorage.getItem('zj_admin_password_hash') || DEFAULT_PASSWORD_HASH;
+
+      if (hashed === savedHash) {
+        const passwordChanged = localStorage.getItem('zj_password_changed') === 'true';
+        if (savedHash === DEFAULT_PASSWORD_HASH && !passwordChanged) {
+          // Force password change modal before setting logged-in state
+          showPasswordChangeModal(true);
+        } else {
+          localStorage.setItem('zj_admin_logged_in', 'true');
+          localStorage.setItem('zj_admin_login_time', Date.now().toString());
+          updateNavigationHeader();
+          window.history.pushState({}, '', getResolvedPath('manage'));
+          navigate('manage');
+          showStatusNotification('관리자 권한이 인증되었습니다.');
+        }
       } else {
         showStatusNotification('인증 암호가 일치하지 않습니다.');
       }
     });
   }
+}
+
+// ==========================================================================
+// ADMIN PASSWORD CHANGE MODAL WINDOW VIEW
+// ==========================================================================
+function showPasswordChangeModal(force = false) {
+  // Check if a modal is already open
+  const existing = document.getElementById('pw-change-modal-overlay');
+  if (existing) existing.remove();
+
+  const overlay = document.createElement('div');
+  overlay.id = 'pw-change-modal-overlay';
+  overlay.className = 'detail-modal-overlay active';
+  overlay.style.zIndex = '2100'; // Make sure it sits on top of details modal
+  
+  overlay.innerHTML = `
+    <div class="detail-modal paper-texture" style="max-width: 500px; padding: 2.5rem;">
+      ${!force ? '<button class="modal-close-btn" id="pw-modal-close">✕</button>' : ''}
+      <div class="archive-pretitle" style="text-align:center;">ADMINISTRATIVE SECURITY CONTROL</div>
+      <h2 class="archive-title" style="text-align:center; font-size:1.5rem; margin-top:0.5rem; margin-bottom:1rem; letter-spacing: 0.05em;">
+        ${force ? '보안 인증 비밀번호 변경' : '비밀번호 변경'}
+      </h2>
+      <p class="archive-intro" style="text-align:center; font-size:0.85rem; margin-bottom:1.5rem; color:var(--text-muted); line-height:1.5;">
+        ${force 
+          ? '시스템 보안을 활성화하기 위해 초기 임시 비밀번호를 반드시 새로운 비밀번호로 변경해야 합니다.' 
+          : '아카이브 데이터 관리자의 보안 인증 비밀번호를 수정합니다.'}
+      </p>
+
+      <form id="pw-change-form">
+        ${!force ? `
+        <div class="form-group" style="margin-bottom:1.2rem;">
+          <label class="archive-label">현재 비밀번호</label>
+          <input type="password" id="pw-current" class="archive-input" required placeholder="현재 비밀번호를 입력하십시오.">
+        </div>
+        ` : ''}
+        <div class="form-group" style="margin-bottom:1.2rem;">
+          <label class="archive-label">새 비밀번호 (최소 6자)</label>
+          <input type="password" id="pw-new" class="archive-input" required placeholder="새로운 비밀번호를 입력하십시오.">
+        </div>
+        <div class="form-group" style="margin-bottom:1.8rem;">
+          <label class="archive-label">새 비밀번호 확인</label>
+          <input type="password" id="pw-confirm" class="archive-input" required placeholder="새로운 비밀번호를 다시 입력하십시오.">
+        </div>
+        
+        <div style="display:flex; gap:0.5rem; justify-content:center;">
+          ${!force ? '<button type="button" id="pw-cancel" class="archive-btn" style="flex:1;">취소</button>' : ''}
+          <button type="submit" class="archive-btn archive-btn-primary" style="flex:1;">비밀번호 적용</button>
+        </div>
+      </form>
+    </div>
+  `;
+
+  document.body.appendChild(overlay);
+
+  const form = document.getElementById('pw-change-form');
+  const closeBtn = document.getElementById('pw-modal-close');
+  const cancelBtn = document.getElementById('pw-cancel');
+
+  const closeModal = () => {
+    overlay.remove();
+    document.removeEventListener('keydown', handleEsc);
+  };
+
+  const handleEsc = (e) => {
+    if (e.key === 'Escape' && !force) {
+      closeModal();
+    }
+  };
+
+  if (!force) {
+    document.addEventListener('keydown', handleEsc);
+    if (closeBtn) closeBtn.addEventListener('click', closeModal);
+    if (cancelBtn) cancelBtn.addEventListener('click', closeModal);
+    
+    // Close on overlay click if not forced
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay) {
+        closeModal();
+      }
+    });
+  }
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const newPwd = document.getElementById('pw-new').value;
+    const confirmPwd = document.getElementById('pw-confirm').value;
+
+    if (newPwd.length < 6) {
+      showStatusNotification('비밀번호는 최소 6자 이상이어야 합니다.');
+      return;
+    }
+
+    if (newPwd !== confirmPwd) {
+      showStatusNotification('새 비밀번호가 일치하지 않습니다.');
+      return;
+    }
+
+    const newHash = await hashPassword(newPwd);
+    if (newHash === DEFAULT_PASSWORD_HASH) {
+      showStatusNotification('보안을 위해 초기 비밀번호와 다른 비밀번호를 설정하십시오.');
+      return;
+    }
+
+    // If not forced, check current password
+    if (!force) {
+      const currentPwd = document.getElementById('pw-current').value;
+      const currentHash = await hashPassword(currentPwd);
+      const savedHash = localStorage.getItem('zj_admin_password_hash') || DEFAULT_PASSWORD_HASH;
+      if (currentHash !== savedHash) {
+        showStatusNotification('현재 비밀번호가 일치하지 않습니다.');
+        return;
+      }
+    }
+
+    // Save new hash
+    localStorage.setItem('zj_admin_password_hash', newHash);
+    localStorage.setItem('zj_password_changed', 'true');
+    
+    // Mark as logged in
+    localStorage.setItem('zj_admin_logged_in', 'true');
+    localStorage.setItem('zj_admin_login_time', Date.now().toString());
+    updateNavigationHeader();
+    
+    showStatusNotification('비밀번호가 성공적으로 변경되었습니다.');
+    closeModal();
+
+    if (force) {
+      // Complete login redirection now that password is secure
+      window.history.pushState({}, '', getResolvedPath('manage'));
+      navigate('manage');
+    } else {
+      // Re-render dashboard
+      renderManage();
+    }
+  });
 }
 
 // ==========================================================================

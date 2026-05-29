@@ -529,6 +529,10 @@ export class ArchiveStorage {
     localStorage.removeItem("zj_relationships");
     localStorage.removeItem("zj_memory_fragments");
     localStorage.removeItem("zj_initialized");
+    localStorage.removeItem("zj_admin_password_hash");
+    localStorage.removeItem("zj_password_changed");
+    localStorage.removeItem("zj_admin_logged_in");
+    localStorage.removeItem("zj_admin_login_time");
     this.init();
   }
 }
