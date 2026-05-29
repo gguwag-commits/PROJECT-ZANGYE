@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>관리자 로그인 | PROJECT : 잔계 (殘界)</title>
+  <meta name="description" content="사후 세계 기업 아카이브 관리 권한 획득을 위한 로그인 페이지입니다.">
+  <link rel="stylesheet" href="../assets/css/style.css">
+</head>
+<body>
+  <div class="bg-layers"></div>
+  <div class="vignette-overlay"></div>
+  <div class="noise-overlay"></div>
+
+  <svg class="chrysanthemum-watermark" viewBox="0 0 100 100" fill="none" stroke="currentColor" stroke-width="0.3">
+    <circle cx="50" cy="50" r="6"/>
+    <ellipse cx="50" cy="50" rx="38" ry="6" transform="rotate(0 50 50)"/>
+    <ellipse cx="50" cy="50" rx="38" ry="6" transform="rotate(15 50 50)"/>
+    <ellipse cx="50" cy="50" rx="38" ry="6" transform="rotate(30 50 50)"/>
+    <ellipse cx="50" cy="50" rx="38" ry="6" transform="rotate(45 50 50)"/>
+    <ellipse cx="50" cy="50" rx="38" ry="6" transform="rotate(60 50 50)"/>
+    <ellipse cx="50" cy="50" rx="38" ry="6" transform="rotate(75 50 50)"/>
+    <ellipse cx="50" cy="50" rx="38" ry="6" transform="rotate(90 50 50)"/>
+    <ellipse cx="50" cy="50" rx="38" ry="6" transform="rotate(105 50 50)"/>
+    <ellipse cx="50" cy="50" rx="38" ry="6" transform="rotate(120 50 50)"/>
+    <ellipse cx="50" cy="50" rx="38" ry="6" transform="rotate(135 50 50)"/>
+    <ellipse cx="50" cy="50" rx="38" ry="6" transform="rotate(150 50 50)"/>
+    <ellipse cx="50" cy="50" rx="38" ry="6" transform="rotate(165 50 50)"/>
+  </svg>
+
+  <div class="app-container">
+    <header>
+      <a href="/" class="logo" id="nav-logo">
+        <div class="logo-stamp">殘</div>
+        <div class="logo-text">PROJECT : 잔계 (殘界)</div>
+      </a>
+      <button class="mobile-nav-toggle" id="menu-toggle" aria-label="메뉴 열기">☰</button>
+      <ul class="nav-links" id="nav-menu">
+        <li><a href="/" data-route="home">Home</a></li>
+        <li><a href="/world/" data-route="world">세계관</a></li>
+        <li><a href="/company/" data-route="company">회사</a></li>
+        <li><a href="/character/" data-route="character">인물</a></li>
+        <li><a href="/incident/" data-route="incident">주요사건</a></li>
+        <li><a href="/games/" data-route="games">게임배포</a></li>
+        <li><a href="/manage/" data-route="manage">기록관리 🔒</a></li>
+        <li><a href="/admin-login/" data-route="admin-login">로그인</a></li>
+      </ul>
+    </header>
+
+    <main id="app">
+      <div class="loading-placeholder" style="text-align: center; padding: 5rem 0; font-family: var(--font-serif); color: var(--text-secondary);">
+        기록 보관소 데이터베이스 로딩 중...
+      </div>
+    </main>
+
+    <footer>
+      <p>© 2026 PROJECT : 잔계 (殘界). ALL RESIDUAL CONSCIOUSNESS PRESERVED.</p>
+      <p style="font-size: 0.7rem; margin-top: 0.5rem; opacity: 0.6;">사후 연합 행정원 아카이브 등급: 2급 기밀 (RESTRICTED ACCESS ONLY)</p>
+    </footer>
+  </div>
+
+  <div class="detail-modal-overlay" id="detail-modal-overlay">
+    <div class="detail-modal" id="detail-modal-content"></div>
+  </div>
+
+  <script type="module" src="../assets/js/app.js"></script>
+</body>
+</html>
