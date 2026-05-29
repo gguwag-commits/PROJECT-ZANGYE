@@ -1987,6 +1987,8 @@ function renderActiveForm() {
 }
 
 function saveRecord() {
+  const records = ArchiveStorage.get(activeManageTab);
+  const item = selectedManageId ? records.find(r => r.id === selectedManageId) : null;
   const data = {};
 
   if (activeManageTab === 'concepts') {
